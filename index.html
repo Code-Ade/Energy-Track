@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0f1e">
+<title>EnergyTrack – Verbrauchsmonitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── RESET & BASE ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2235;--bg4:#1f2d45;
+  --border:#243048;--border2:#2d3f5e;
+  --text:#e8edf5;--text2:#8fa3bf;--text3:#506080;
+  --amber:#f59e0b;--amber2:#fbbf24;--amber-bg:#1a1200;
+  --green:#10b981;--green-bg:#022c1c;
+  --red:#ef4444;--red-bg:#1f0707;
+  --blue:#3b82f6;--blue-bg:#071535;
+  --purple:#a78bfa;
+  --font-mono:'IBM Plex Mono',monospace;
+  --font-display:'Syne',sans-serif;
+  --radius:10px;--radius-lg:16px;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --transition:0.18s ease;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:14px;line-height:1.5;overflow-x:hidden}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+a{color:var(--amber);text-decoration:none}
+button{cursor:pointer;font-family:var(--font-mono);border:none;background:none;outline:none;transition:var(--transition)}
+input,select,textarea{font-family:var(--font-mono);outline:none;transition:border-color var(--transition)}
+img{max-width:100%;display:block}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:100vh}
+nav#sidebar{
+  width:220px;flex-shrink:0;background:linear-gradient(180deg,#080d1a 0%,#0a0f1e 100%);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+main#content{flex:1;overflow-y:auto;padding:32px;max-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar-brand{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.sidebar-brand h1{font-family:var(--font-display);font-size:17px;font-weight:800;color:var(--amber);letter-spacing:-0.3px}
+.sidebar-brand small{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.nav-items{padding:10px 0;flex:1}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;width:100%;padding:11px 20px;
+  color:var(--text3);font-size:12px;text-align:left;border-left:3px solid transparent;
+  transition:var(--transition);letter-spacing:0.3px;
+}
+.nav-btn:hover{background:var(--bg3);color:var(--text2)}
+.nav-btn.active{background:var(--bg3);color:var(--amber);border-left-color:var(--amber)}
+.nav-btn svg{flex-shrink:0;opacity:0.7}
+.nav-btn.active svg{opacity:1}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+
+/* ── TYPOGRAPHY ── */
+.page-title{font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-bottom:6px}
+.page-sub{font-size:11px;color:var(--text3);letter-spacing:0.5px;margin-bottom:28px}
+.section-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px}
+
+/* ── CARDS ── */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.card-grid{display:grid;gap:14px}
+.card-grid-2{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card-grid-4{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+
+/* ── STAT CARDS ── */
+.stat-card{
+  background:linear-gradient(135deg,var(--bg3) 0%,var(--bg2) 100%);
+  border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;
+  border-radius:50%;opacity:0.07;background:var(--accent,var(--amber));
+}
+.stat-val{font-family:var(--font-display);font-size:30px;font-weight:800;margin:10px 0 4px}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius);font-size:12px;font-weight:500;letter-spacing:0.3px;transition:var(--transition)}
+.btn-primary{background:var(--amber);color:#000;font-weight:700}
+.btn-primary:hover{background:var(--amber2);transform:translateY(-1px);box-shadow:0 4px 14px rgba(245,158,11,0.3)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);padding:8px 14px}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.btn-danger:hover{background:var(--red-bg);border-color:var(--red)}
+.btn-sm{padding:6px 12px;font-size:11px}
+
+/* ── FORM FIELDS ── */
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px}
+.input{
+  background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:10px 13px;border-radius:var(--radius);font-size:13px;width:100%;
+  font-family:var(--font-mono);
+}
+.input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,0.1)}
+.input::placeholder{color:var(--text3)}
+select.input option{background:var(--bg2)}
+.input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ── CHIPS / BADGES ── */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.3px}
+.chip-amber{background:rgba(245,158,11,0.15);color:var(--amber)}
+.chip-green{background:rgba(16,185,129,0.15);color:var(--green)}
+.chip-red{background:rgba(239,68,68,0.15);color:var(--red)}
+.chip-blue{background:rgba(59,130,246,0.15);color:var(--blue)}
+.chip-purple{background:rgba(167,139,250,0.15);color:var(--purple)}
+
+/* ── ALERTS ── */
+.alert{padding:13px 16px;border-radius:var(--radius);font-size:12px;border:1px solid transparent;line-height:1.6}
+.alert-green{background:var(--green-bg);border-color:rgba(16,185,129,0.25);color:var(--green)}
+.alert-amber{background:var(--amber-bg);border-color:rgba(245,158,11,0.25);color:var(--amber)}
+.alert-red{background:var(--red-bg);border-color:rgba(239,68,68,0.25);color:var(--red)}
+.alert-blue{background:var(--blue-bg);border-color:rgba(59,130,246,0.25);color:var(--blue)}
+
+/* ── MODAL ── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.75);
+  display:flex;align-items:center;justify-content:center;
+  z-index:100;padding:20px;backdrop-filter:blur(6px);
+  animation:fadeIn 0.15s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:20px;
+  width:100%;max-width:500px;max-height:90vh;overflow-y:auto;
+  animation:slideUp 0.2s ease;box-shadow:var(--shadow);
+}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:20px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;
+  background:var(--bg3);z-index:1;
+}
+.modal-title{font-family:var(--font-display);font-size:17px;font-weight:800}
+.modal-body{padding:24px;display:flex;flex-direction:column;gap:16px}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:24px;right:24px;z-index:200;
+  display:flex;flex-direction:column;gap:8px;
+}
+.toast-item{
+  padding:13px 18px;border-radius:var(--radius);font-size:12px;font-weight:500;
+  box-shadow:var(--shadow);animation:slideIn 0.25s ease;min-width:220px;
+  border:1px solid transparent;
+}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast-success{background:var(--green-bg);border-color:rgba(16,185,129,0.3);color:var(--green)}
+.toast-error{background:var(--red-bg);border-color:rgba(239,68,68,0.3);color:var(--red)}
+.toast-info{background:var(--blue-bg);border-color:rgba(59,130,246,0.3);color:var(--blue)}
+
+/* ── DROP ZONE ── */
+.dropzone{
+  border:2px dashed var(--border2);border-radius:var(--radius-lg);
+  padding:36px 20px;text-align:center;cursor:pointer;transition:var(--transition);
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--amber);background:rgba(245,158,11,0.04)}
+.dropzone-preview{border-radius:var(--radius);object-fit:contain;max-height:200px;margin:0 auto}
+
+/* ── TABLE ── */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{text-align:left;padding:10px 14px;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500}
+.data-table td{padding:11px 14px;border-bottom:1px solid rgba(36,48,72,0.5);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,0.02)}
+
+/* ── METER TYPE COLORS ── */
+.type-strom{--accent:#f59e0b;border-left:3px solid var(--amber)!important}
+.type-gas{--accent:#ef4444;border-left:3px solid var(--red)!important}
+.type-wasser{--accent:#3b82f6;border-left:3px solid var(--blue)!important}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty svg{margin:0 auto 16px;opacity:0.2}
+.empty p{font-size:13px;margin-bottom:18px}
+
+/* ── CHART CONTAINERS ── */
+.chart-wrap{position:relative;height:220px}
+
+/* ── SETTINGS BOX ── */
+.key-box{
+  background:linear-gradient(135deg,rgba(245,158,11,0.08) 0%,transparent 100%);
+  border:1px solid rgba(245,158,11,0.25);border-radius:var(--radius-lg);padding:20px;
+}
+
+/* ── MOBILE ── */
+@media(max-width:680px){
+  #sidebar{display:none}
+  main#content{padding:16px}
+  .card-grid-2,.card-grid-4{grid-template-columns:1fr}
+  .input-row{grid-template-columns:1fr}
+}
+
+/* ── ANIMATIONS ── */
+.fade-in{animation:fadeIn 0.3s ease}
+.page{display:none}.page.active{display:block}
+
+/* ── PROGRESS BAR ── */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin 0.6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─ METER CARD ─ */
+.meter-card{transition:var(--transition)}
+.meter-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <h1>⚡ EnergyTrack</h1>
+      <small>Verbrauchsmonitor</small>
+    </div>
+    <div class="nav-items">
+      <button class="nav-btn active" data-page="dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-btn" data-page="meters">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Zähler
+      </button>
+      <button class="nav-btn" data-page="readings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Ablesungen
+      </button>
+      <button class="nav-btn" data-page="analysis">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Analyse
+      </button>
+      <button class="nav-btn" data-page="contracts">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Verträge
+      </button>
+      <button class="nav-btn" data-page="settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Einstellungen
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-sm" style="width:100%" onclick="exportCSV()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV Export
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main id="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active fade-in" id="page-dashboard">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-sub" id="dashboard-date"></p>
+      <div class="card-grid card-grid-4" style="margin-bottom:28px" id="stat-cards"></div>
+      <p class="section-label">Zählerübersicht</p>
+      <div class="card-grid card-grid-2" id="meter-cards-dashboard"></div>
+    </div>
+
+    <!-- METERS -->
+    <div class="page fade-in" id="page-meters">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h1 class="page-title" style="margin-bottom:0">Zähler</h1>
+        <button class="btn btn-primary" onclick="openModal('addMeter')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Zähler hinzufügen
+        </button>
+      </div>
+      <p class="page-sub">Verwalte deine Strom-, Gas- und Wasserzähler</p>
+      <div id="meters-list"></div>
+    </div>
+
+    <!-- READINGS -->
+    <div class="page fade-in" id="page-readings">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+        <h1 class="page-title" style="margin-bottom:0">Ablesungen</h1>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <select class="input" style="width:auto" id="readings-filter" onchange="renderReadings()">
+            <option value="all">Alle Zähler</option>
+          </select>
+        </div>
+      </div>
+      <p class="page-sub">Alle erfassten Zählerstände</p>
+      <div id="readings-list"></div>
+    </div>
+
+    <!-- ANALYSIS -->
+    <div class="page fade-in" id="page-analysis">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+        <h1 class="page-title" style="margin-bottom:0">Analyse</h1>
+        <select class="input" style="width:auto" id="analysis-filter" onchange="renderAnalysis()">
+          <option value="all">Alle Zähler</option>
+        </select>
+      </div>
+      <p class="page-sub">Grafische Auswertung deiner Verbräuche</p>
+      <div style="display:grid;gap:20px">
+        <div class="card">
+          <p class="section-label">Verbrauch über Zeit</p>
+          <div class="chart-wrap"><canvas id="chart-consumption"></canvas></div>
+        </div>
+        <div class="card">
+          <p class="section-label" id="year-compare-label">Jahresvergleich</p>
+          <div class="chart-wrap"><canvas id="chart-year"></canvas></div>
+        </div>
+        <div id="cost-analysis-section"></div>
+      </div>
+    </div>
+
+    <!-- CONTRACTS -->
+    <div class="page fade-in" id="page-contracts">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h1 class="page-title" style="margin-bottom:0">Verträge</h1>
+        <button class="btn btn-primary" onclick="openModal('addContract')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Vertrag hinzufügen
+        </button>
+      </div>
+      <p class="page-sub">Preise, Laufzeiten und Jahresschätzungen</p>
+      <div id="contracts-list"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page fade-in" id="page-settings">
+      <h1 class="page-title">Einstellungen</h1>
+      <p class="page-sub">API-Key und App-Konfiguration</p>
+      <div style="max-width:520px;display:flex;flex-direction:column;gap:20px">
+        <div class="key-box">
+          <p class="section-label" style="color:var(--amber)">🔑 Anthropic API-Key</p>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7">
+            Für die KI-Foto-Erkennung benötigst du einen Anthropic API-Key.<br>
+            Hole dir einen kostenlos unter <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+          </p>
+          <div class="field">
+            <label>API-Key (wird lokal gespeichert, nicht übertragen)</label>
+            <div style="display:flex;gap:8px">
+              <input type="password" class="input" id="api-key-input" placeholder="sk-ant-..." style="flex:1">
+              <button class="btn btn-primary" onclick="saveApiKey()">Speichern</button>
+            </div>
+          </div>
+          <div id="api-key-status" style="margin-top:10px"></div>
+        </div>
+
+        <div class="card">
+          <p class="section-label">📊 Daten</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="exportCSV()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              CSV exportieren
+            </button>
+            <button class="btn btn-ghost" onclick="exportJSON()">JSON exportieren</button>
+            <button class="btn btn-danger" onclick="importJSON()">JSON importieren</button>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-top:12px">Exportiere regelmäßig deine Daten als Backup.</p>
+        </div>
+
+        <div class="card">
+          <p class="section-label" style="color:var(--red)">⚠ Gefahrenzone</p>
+          <button class="btn btn-danger" onclick="resetAll()">Alle Daten löschen</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODALS -->
+<div id="modal-container"></div>
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'energytrack_v1';
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {meters:[],readings:[],contracts:[]}; }
+  catch { return {meters:[],readings:[],contracts:[]}; }
+}
+function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+function getApiKey() { return localStorage.getItem('energytrack_apikey') || ''; }
+function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k.startsWith('sk-ant-')) { showToast('Ungültiger Key-Format (muss mit sk-ant- beginnen)', 'error'); return; }
+  localStorage.setItem('energytrack_apikey', k);
+  showToast('API-Key gespeichert ✓', 'success');
+  document.getElementById('api-key-status').innerHTML = `<div class="alert alert-green">✓ API-Key gespeichert</div>`;
+}
+
+let DB = loadData();
+
+const uid = () => Math.random().toString(36).slice(2,10);
+const fmt = (n, d=2) => Number(n||0).toFixed(d);
+const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('de-DE') : '–';
+const fmtCur = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n||0);
+
+const TYPES = {
+  strom:  {label:'Strom',  unit:'kWh', color:'#f59e0b', icon:'⚡', chipClass:'chip-amber'},
+  gas:    {label:'Gas',    unit:'m³',  color:'#ef4444', icon:'🔥', chipClass:'chip-red'},
+  wasser: {label:'Wasser', unit:'m³',  color:'#3b82f6', icon:'💧', chipClass:'chip-blue'},
+};
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+let currentPage = 'dashboard';
+const charts = {};
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.page;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
+    document.getElementById('page-'+p).classList.add('active');
+    currentPage = p;
+    renderPage(p);
+  });
+});
+
+function renderPage(p) {
+  if (p==='dashboard') renderDashboard();
+  if (p==='meters') renderMeters();
+  if (p==='readings') renderReadings();
+  if (p==='analysis') renderAnalysis();
+  if (p==='contracts') renderContracts();
+  if (p==='settings') renderSettings();
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+function renderDashboard() {
+  document.getElementById('dashboard-date').textContent =
+    new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  const thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0,0,0,0);
+  const readThisMonth = DB.readings.filter(r => new Date(r.date) >= thisMonth).length;
+
+  document.getElementById('stat-cards').innerHTML = [
+    {label:'Zähler',val:DB.meters.length,icon:'⚡',color:'var(--amber)'},
+    {label:'Ablesungen',val:DB.readings.length,icon:'📋',color:'var(--blue)'},
+    {label:'Diesen Monat',val:readThisMonth,icon:'📅',color:'var(--green)'},
+    {label:'Verträge',val:DB.contracts.length,icon:'📄',color:'var(--purple)'},
+  ].map(s=>`
+    <div class="stat-card" style="--accent:${s.color}">
+      <div style="font-size:22px;margin-bottom:8px">${s.icon}</div>
+      <div class="stat-val" style="color:${s.color}">${s.val}</div>
+      <div class="stat-lbl">${s.label}</div>
+    </div>`).join('');
+
+  if (!DB.meters.length) {
+    document.getElementById('meter-cards-dashboard').innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Noch keine Zähler angelegt.<br>Lege deinen ersten Zähler an!</p>
+        <button class="btn btn-primary" onclick="showPage('meters');openModal('addMeter')">Zähler hinzufügen</button>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('meter-cards-dashboard').innerHTML = DB.meters.map(m => {
+    const t = TYPES[m.type];
+    const mrs = DB.readings.filter(r=>r.meterId===m.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const last = mrs[0], prev = mrs[1];
+    const contract = DB.contracts.find(c=>c.meterId===m.id);
+    let costHtml = '';
+    if (last && prev && contract) {
+      const diff = last.value - prev.value;
+      const cost = diff * (parseFloat(contract.workPrice)||0) / 100;
+      costHtml = `<div style="font-size:11px;color:var(--amber);margin-top:3px">≈ ${fmtCur(cost)} seit letzter Ablesung</div>`;
+    }
+    return `
+      <div class="card meter-card type-${m.type}" style="cursor:default">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <div style="font-weight:600;font-size:14px;color:var(--text)">${m.name}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">ID: ${m.meterId||'–'} ${m.location?'· '+m.location:''}</div>
+          </div>
+          <span class="chip ${t.chipClass}">${t.icon} ${t.label}</span>
+        </div>
+        ${last ? `
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--text)">${fmt(last.value)} <span style="font-size:13px;color:var(--text3);font-family:var(--font-mono)">${t.unit}</span></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Zuletzt: ${fmtDate(last.date)}</div>
+          ${prev ? `<div style="font-size:11px;color:var(--green);margin-top:3px">+${fmt(last.value-prev.value)} ${t.unit} seit letzter Ablesung</div>` : ''}
+          ${costHtml}
+        ` : `<div style="color:var(--text3);font-size:12px">Noch keine Ablesung</div>`}
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary btn-sm" onclick="openModal('photoReading','${m.id}')">📷 Foto</button>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('manualReading','${m.id}')">✏️ Manuell</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// METERS
+// ═══════════════════════════════════════════════════════
+function renderMeters() {
+  if (!DB.meters.length) {
+    document.getElementById('meters-list').innerHTML = `
+      <div class="empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Noch keine Zähler vorhanden.</p></div>`;
+    return;
+  }
+  document.getElementById('meters-list').innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${
+    DB.meters.map(m => {
+      const t = TYPES[m.type];
+      const cnt = DB.readings.filter(r=>r.meterId===m.id).length;
+      const contract = DB.contracts.find(c=>c.meterId===m.id);
+      return `
+        <div class="card meter-card type-${m.type}" style="display:flex;align-items:center;gap:16px">
+          <div style="width:42px;height:42px;border-radius:10px;background:${t.color}18;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${t.icon}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px;color:var(--text)">${m.name}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">
+              ${t.label} · ID: ${m.meterId||'–'} · ${m.location||'kein Standort'} · ${cnt} Ablesungen${contract?' · Vertrag hinterlegt':''}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="openModal('photoReading','${m.id}')">📷</button>
+            <button class="btn btn-ghost btn-sm" onclick="openModal('manualReading','${m.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteMeter('${m.id}')">🗑</button>
+          </div>
+        </div>`;
+    }).join('')
+  }</div>`;
+}
+
+function deleteMeter(id) {
+  if (!confirm('Zähler und alle Ablesungen löschen?')) return;
+  DB.meters = DB.meters.filter(m=>m.id!==id);
+  DB.readings = DB.readings.filter(r=>r.meterId!==id);
+  DB.contracts = DB.contracts.filter(c=>c.meterId!==id);
+  saveData(DB); renderMeters(); showToast('Zähler gelöscht','error');
+}
+
+// ═══════════════════════════════════════════════════════
+// READINGS
+// ═══════════════════════════════════════════════════════
+function renderReadings() {
+  // Populate filter
+  const sel = document.getElementById('readings-filter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">Alle Zähler</option>' +
+    DB.meters.map(m=>`<option value="${m.id}"${m.id===cur?' selected':''}>${m.name}</option>`).join('');
+
+  const filter = sel.value;
+  const list = DB.readings
+    .filter(r => filter==='all' || r.meterId===filter)
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  if (!list.length) {
+    document.getElementById('readings-list').innerHTML = '<div class="empty"><p>Keine Ablesungen vorhanden.</p></div>';
+    return;
+  }
+
+  document.getElementById('readings-list').innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden">
+    <table class="data-table">
+      <thead><tr>
+        <th>Datum</th><th>Zähler</th><th>Zählerstand</th><th>Quelle</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>${list.map(r => {
+        const m = DB.meters.find(x=>x.id===r.meterId);
+        const t = m ? TYPES[m.type] : null;
+        const issues = r.issues||[];
+        return `<tr>
+          <td style="color:var(--text2)">${fmtDate(r.date)} ${r.time?'<span style="color:var(--text3)">'+r.time+'</span>':''}</td>
+          <td><span style="font-weight:500">${m?.name||'–'}</span>${t?` <span class="chip ${t.chipClass}" style="margin-left:6px">${t.icon}</span>`:''}</td>
+          <td style="font-family:var(--font-display);font-size:15px;font-weight:700">${fmt(r.value)} <span style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">${t?.unit||''}</span></td>
+          <td>${r.source==='photo'?'<span class="chip chip-green">📷 KI</span>':'<span class="chip chip-blue">✏️ Manuell</span>'}</td>
+          <td>${issues.length?`<span class="chip chip-amber" title="${issues.join(', ')}">⚠ ${issues.length}</span>`:'<span class="chip chip-green">✓ OK</span>'}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteReading('${r.id}')">🗑</button></td>
+        </tr>${issues.length?`<tr><td colspan="6" style="padding:0 14px 8px;font-size:11px;color:var(--amber)">${issues.map(i=>'⚠ '+i).join(' · ')}</td></tr>`:''}`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+
+function deleteReading(id) {
+  if (!confirm('Ablesung löschen?')) return;
+  DB.readings = DB.readings.filter(r=>r.id!==id);
+  saveData(DB); renderReadings(); showToast('Ablesung gelöscht','error');
+}
+
+// ═══════════════════════════════════════════════════════
+// ANALYSIS
+// ═══════════════════════════════════════════════════════
+function renderAnalysis() {
+  const sel = document.getElementById('analysis-filter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">Alle Zähler</option>' +
+    DB.meters.map(m=>`<option value="${m.id}"${m.id===cur?' selected':''}>${m.name}</option>`).join('');
+  const filter = sel.value;
+
+  // Destroy old charts
+  Object.values(charts).forEach(c=>c.destroy());
+
+  // Consumption chart
+  const meters = filter==='all' ? DB.meters : DB.meters.filter(m=>m.id===filter);
+  const COLORS = ['#f59e0b','#3b82f6','#10b981','#a78bfa','#ef4444','#06b6d4'];
+  const datasets = meters.map((m,i) => {
+    const mrs = DB.readings.filter(r=>r.meterId===m.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const pts = [];
+    for(let j=1;j<mrs.length;j++) pts.push({x:fmtDate(mrs[j].date), y:+(mrs[j].value-mrs[j-1].value).toFixed(3)});
+    return {label:m.name,data:pts,backgroundColor:COLORS[i%COLORS.length]+'cc',borderColor:COLORS[i%COLORS.length],borderRadius:5,borderWidth:0};
+  }).filter(d=>d.data.length);
+
+  const ctx1 = document.getElementById('chart-consumption').getContext('2d');
+  charts.consumption = new Chart(ctx1,{
+    type:'bar',
+    data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      parsing:{xAxisKey:'x',yAxisKey:'y'},
+      plugins:{legend:{labels:{color:'#8fa3bf',font:{family:'IBM Plex Mono',size:11}}},tooltip:{backgroundColor:'#111827',titleColor:'#e8edf5',bodyColor:'#8fa3bf',borderColor:'#243048',borderWidth:1}},
+      scales:{
+        x:{ticks:{color:'#506080',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#1a2235'}},
+        y:{ticks:{color:'#506080',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#1a2235'}}
+      }
+    }
+  });
+
+  // Year comparison
+  const thisYear = new Date().getFullYear();
+  const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const byMonth = Array.from({length:12},()=>({thisYear:0,lastYear:0}));
+  DB.readings.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  DB.meters.forEach(m=>{
+    const mrs = DB.readings.filter(r=>r.meterId===m.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    for(let i=1;i<mrs.length;i++){
+      const d=new Date(mrs[i].date), yr=d.getFullYear(), mo=d.getMonth();
+      const diff = mrs[i].value - mrs[i-1].value;
+      if(yr===thisYear) byMonth[mo].thisYear+=diff;
+      else if(yr===thisYear-1) byMonth[mo].lastYear+=diff;
+    }
+  });
+  document.getElementById('year-compare-label').textContent = `Jahresvergleich ${thisYear-1} vs. ${thisYear}`;
+  const ctx2 = document.getElementById('chart-year').getContext('2d');
+  charts.year = new Chart(ctx2,{
+    type:'bar',
+    data:{
+      labels:monthNames,
+      datasets:[
+        {label:String(thisYear-1),data:byMonth.map(m=>+m.lastYear.toFixed(3)),backgroundColor:'#243048',borderRadius:5,borderWidth:0},
+        {label:String(thisYear),data:byMonth.map(m=>+m.thisYear.toFixed(3)),backgroundColor:'#f59e0bcc',borderRadius:5,borderWidth:0},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8fa3bf',font:{family:'IBM Plex Mono',size:11}}},tooltip:{backgroundColor:'#111827',titleColor:'#e8edf5',bodyColor:'#8fa3bf',borderColor:'#243048',borderWidth:1}},
+      scales:{
+        x:{ticks:{color:'#506080',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#1a2235'}},
+        y:{ticks:{color:'#506080',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#1a2235'}}
+      }
+    }
+  });
+
+  // Cost analysis
+  const costCards = DB.contracts.map(c=>{
+    const m = DB.meters.find(x=>x.id===c.meterId);
+    if(!m) return '';
+    const mrs = DB.readings.filter(r=>r.meterId===m.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    if(mrs.length<2) return '';
+    const totalC = mrs[mrs.length-1].value - mrs[0].value;
+    const days = (new Date(mrs[mrs.length-1].date)-new Date(mrs[0].date))/(86400000);
+    const months = days/30;
+    const monthlyWork = months>0 ? (totalC/months)*(parseFloat(c.workPrice)||0)/100 : 0;
+    const monthlyBase = (parseFloat(c.basePrice)||0)/12;
+    const monthly = monthlyWork+monthlyBase;
+    const t = TYPES[m.type];
+    return `<div style="background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${t.icon} ${m.name}</div>
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--amber)">${fmtCur(monthly)}</div>
+      <div style="font-size:10px;color:var(--text3)">pro Monat (est.)</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-top:8px">${fmtCur(monthly*12)} / Jahr</div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  document.getElementById('cost-analysis-section').innerHTML = costCards ? `
+    <div class="card">
+      <p class="section-label">Kostenprognose</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${costCards}</div>
+    </div>` : '';
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTRACTS
+// ═══════════════════════════════════════════════════════
+function renderContracts() {
+  if (!DB.meters.length) {
+    document.getElementById('contracts-list').innerHTML = '<div class="alert alert-amber">Lege zuerst einen Zähler an, bevor du Verträge hinzufügst.</div>';
+    return;
+  }
+  if (!DB.contracts.length) {
+    document.getElementById('contracts-list').innerHTML = `<div class="empty"><p>Noch keine Verträge hinterlegt.</p><button class="btn btn-primary" onclick="openModal('addContract')">Ersten Vertrag anlegen</button></div>`;
+    return;
+  }
+  document.getElementById('contracts-list').innerHTML = `<div style="display:flex;flex-direction:column;gap:14px">${
+    DB.contracts.map(c=>{
+      const m = DB.meters.find(x=>x.id===c.meterId);
+      const t = m ? TYPES[m.type] : null;
+      const yearly = (parseFloat(c.basePrice)||0) + (parseFloat(c.workPrice)||0)*(parseFloat(c.estimatedYearly)||0)/100;
+      return `<div class="card${m?' type-'+m.type:''}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-weight:600;font-size:15px;color:var(--text)">${c.provider||'Unbekannter Anbieter'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Zähler: ${m?.name||'–'}${t?` · ${t.icon} ${t.label}`:''}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openModal('editContract','${c.id}')">Bearbeiten</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteContract('${c.id}')">🗑</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+          ${[
+            {l:'Grundpreis/Jahr', v:fmtCur(parseFloat(c.basePrice)||0)},
+            {l:`Arbeitspreis`, v:`${fmt(c.workPrice,3)} ct/${t?.unit||'kWh'}`},
+            {l:'Schätzung/Jahr', v:`${c.estimatedYearly||'–'} ${t?.unit||''}`},
+            {l:'Jahreskosten est.', v:fmtCur(yearly), highlight:true},
+            {l:'Vertragsbeginn', v:fmtDate(c.startDate)},
+            {l:'Vertragsende', v:fmtDate(c.endDate)},
+          ].map(f=>`<div style="background:var(--bg2);border-radius:8px;padding:12px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${f.l}</div>
+            <div style="font-size:13px;font-weight:600;color:${f.highlight?'var(--amber)':'var(--text)'};margin-top:4px">${f.v}</div>
+          </div>`).join('')}
+        </div>
+        ${c.notes?`<div style="margin-top:12px;font-size:11px;color:var(--text3);font-style:italic">📝 ${c.notes}</div>`:''}
+      </div>`;
+    }).join('')
+  }</div>`;
+}
+
+function deleteContract(id) {
+  if (!confirm('Vertrag löschen?')) return;
+  DB.contracts = DB.contracts.filter(c=>c.id!==id);
+  saveData(DB); renderContracts(); showToast('Vertrag gelöscht','error');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function renderSettings() {
+  const key = getApiKey();
+  document.getElementById('api-key-input').value = key ? '••••••••••••••••' : '';
+  document.getElementById('api-key-status').innerHTML = key
+    ? '<div class="alert alert-green">✓ API-Key ist hinterlegt</div>'
+    : '<div class="alert alert-amber">⚠ Kein API-Key gespeichert – KI-Foto-Erkennung nicht verfügbar</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════
+function openModal(type, id) {
+  const c = document.getElementById('modal-container');
+  if (type==='addMeter') c.innerHTML = buildAddMeterModal();
+  else if (type==='photoReading') c.innerHTML = buildPhotoReadingModal(id);
+  else if (type==='manualReading') c.innerHTML = buildManualReadingModal(id);
+  else if (type==='addContract') c.innerHTML = buildContractModal(null, null);
+  else if (type==='editContract') { const ct=DB.contracts.find(x=>x.id===id); c.innerHTML = buildContractModal(ct, null); }
+}
+
+function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
+
+// ── ADD METER ──
+function buildAddMeterModal() {
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Zähler hinzufügen</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Name / Bezeichnung *</label><input class="input" id="m-name" placeholder="z.B. Hauptzähler Keller"></div>
+      <div class="field"><label>Typ *</label>
+        <select class="input" id="m-type">
+          <option value="strom">⚡ Strom</option>
+          <option value="gas">🔥 Gas</option>
+          <option value="wasser">💧 Wasser</option>
+        </select>
+      </div>
+      <div class="field"><label>Zähler-ID / Seriennummer</label><input class="input" id="m-meterid" placeholder="z.B. 1ESY1234567890"></div>
+      <div class="field"><label>Standort</label><input class="input" id="m-location" placeholder="z.B. Keller, Heizungsraum…"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+        <button class="btn btn-primary" onclick="saveMeter()">Speichern</button>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+function saveMeter() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { showToast('Name ist erforderlich','error'); return; }
+  DB.meters.push({ id:uid(), name, type:document.getElementById('m-type').value, meterId:document.getElementById('m-meterid').value.trim(), location:document.getElementById('m-location').value.trim(), createdAt:new Date().toISOString() });
+  saveData(DB); closeModal(); renderPage(currentPage); showToast('Zähler hinzugefügt ✓');
+}
+
+// ── PHOTO READING ──
+function buildPhotoReadingModal(meterId) {
+  const m = DB.meters.find(x=>x.id===meterId);
+  const t = TYPES[m.type];
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📷 Foto-Ablesung: ${m.name}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('file-in').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'${meterId}')">
+        <input type="file" id="file-in" accept="image/*" capture="environment" style="display:none" onchange="handleFileSelect(event,'${meterId}')">
+        <div id="dz-content">
+          <div style="font-size:36px;margin-bottom:8px">📸</div>
+          <div style="color:var(--text2);font-size:13px">Foto aufnehmen oder hochladen</div>
+          <div style="color:var(--text3);font-size:11px;margin-top:4px">Klicken oder Datei hineinziehen</div>
+        </div>
+      </div>
+      <div id="ai-status"></div>
+      <div id="reading-form" style="display:none;flex-direction:column;gap:14px">
+        <div class="field"><label>Zählerstand (${t.unit}) *</label><input class="input" id="r-value" type="number" step="0.001" placeholder="Vom KI erkannt oder manuell korrigieren"></div>
+        <div class="input-row">
+          <div class="field"><label>Datum</label><input class="input" id="r-date" type="date"></div>
+          <div class="field"><label>Uhrzeit</label><input class="input" id="r-time" type="time"></div>
+        </div>
+        <div class="field"><label>Notiz (optional)</label><input class="input" id="r-notes" placeholder="z.B. Urlaub, Zähler getauscht…"></div>
+        <div id="r-issues"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+          <button class="btn btn-primary" onclick="savePhotoReading('${meterId}')">Ablesung speichern</button>
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+function handleDrop(e, meterId) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) processImage(f, meterId);
+}
+function handleFileSelect(e, meterId) {
+  const f = e.target.files[0];
+  if (f) processImage(f, meterId);
+}
+
+async function processImage(file, meterId) {
+  const m = DB.meters.find(x=>x.id===meterId);
+  const prev = DB.readings.filter(r=>r.meterId===meterId).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+
+  // Show preview
+  const url = URL.createObjectURL(file);
+  document.getElementById('dz-content').innerHTML = `<img src="${url}" class="dropzone-preview">`;
+
+  // Show spinner
+  document.getElementById('ai-status').innerHTML = `<div class="alert alert-blue" style="display:flex;align-items:center;gap:10px"><span class="spinner"></span>KI analysiert das Foto…</div>`;
+
+  const key = getApiKey();
+  if (!key) {
+    document.getElementById('ai-status').innerHTML = `<div class="alert alert-amber">⚠ Kein API-Key hinterlegt. Bitte unter Einstellungen eintragen.<br>Du kannst den Zählerstand manuell eingeben.</div>`;
+    document.getElementById('reading-form').style.display = 'flex';
+    document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+    return;
+  }
+
+  try {
+    const b64 = await fileToBase64(file);
+    const result = await callClaudeVision(b64, file.type, m, prev);
+    showAiResult(result, meterId);
+  } catch(e) {
+    document.getElementById('ai-status').innerHTML = `<div class="alert alert-red">❌ Fehler: ${e.message}</div>`;
+    document.getElementById('reading-form').style.display = 'flex';
+    document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+  }
+}
+
+async function callClaudeVision(b64, mediaType, meter, prevReading) {
+  const key = getApiKey();
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      system:`Du bist ein Experte für das Ablesen von Energiezählern. Analysiere das Bild und extrahiere:
+1. meter_id: Zählernummer/Seriennummer (String)
+2. reading: Zählerstand als Dezimalzahl
+3. date: Datum aus EXIF/Bild (ISO 8601 YYYY-MM-DD), null wenn nicht erkennbar
+4. time: Uhrzeit (HH:MM), null wenn nicht erkennbar
+5. confidence: Konfidenz 0-100
+6. readable: true/false
+7. issues: Array mit Problemhinweisen (leer wenn alles ok)
+
+Prüfe auf Plausibilität:
+- Ist der erkannte Stand kleiner als der vorherige? → Issue melden
+- Zu große Abweichung (>50% des Jahresverbrauchs in kurzer Zeit)? → Issue melden
+- Weicht die Zähler-ID ab? → Issue melden
+- Ist das Bild unscharf/unleserlich? → readable=false
+
+Antworte NUR mit einem JSON-Objekt, kein Markdown, keine Erklärungen.`,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
+        {type:'text',text:`Zähler: ${meter.name} (${TYPES[meter.type].label})\nErwartete Zähler-ID: ${meter.meterId||'unbekannt'}\n${prevReading?`Letzter Stand: ${prevReading.value} am ${fmtDate(prevReading.date)}`:'Erste Ablesung'}`}
+      ]}]
+    })
+  });
+  if (!res.ok) throw new Error(`API-Fehler ${res.status}`);
+  const data = await res.json();
+  const text = data.content?.map(c=>c.text||'').join('') || '{}';
+  return JSON.parse(text.replace(/```json|```/g,'').trim());
+}
+
+function showAiResult(r, meterId) {
+  window._lastAiResult = r;
+  const ok = r.readable !== false;
+  document.getElementById('ai-status').innerHTML = ok
+    ? `<div class="alert alert-green">✅ Erkannt – Konfidenz: ${r.confidence||'?'}%${r.meter_id?' · ID: '+r.meter_id:''}</div>`
+    : `<div class="alert alert-red">❌ Bild nicht auslesbar: ${(r.issues||[]).join(', ')||'Unbekannter Fehler'}</div>`;
+
+  const form = document.getElementById('reading-form');
+  form.style.display = 'flex';
+  if (r.reading) document.getElementById('r-value').value = r.reading;
+  document.getElementById('r-date').value = r.date || new Date().toISOString().split('T')[0];
+  if (r.time) document.getElementById('r-time').value = r.time;
+
+  if (r.issues?.length) {
+    document.getElementById('r-issues').innerHTML = `<div class="alert alert-amber">${r.issues.map(i=>'⚠ '+i).join('<br>')}</div>`;
+  }
+}
+
+function savePhotoReading(meterId) {
+  const val = parseFloat(document.getElementById('r-value').value);
+  if (isNaN(val)) { showToast('Zählerstand erforderlich','error'); return; }
+  const r = window._lastAiResult || {};
+  DB.readings.push({
+    id:uid(), meterId, value:val,
+    date:document.getElementById('r-date').value,
+    time:document.getElementById('r-time').value,
+    detectedMeterId:r.meter_id||'',
+    confidence:r.confidence,
+    issues:r.issues||[],
+    notes:document.getElementById('r-notes').value,
+    source:'photo',
+    createdAt:new Date().toISOString(),
+  });
+  saveData(DB); closeModal(); renderPage(currentPage); showToast('Ablesung gespeichert ✓');
+}
+
+// ── MANUAL READING ──
+function buildManualReadingModal(meterId) {
+  const m = DB.meters.find(x=>x.id===meterId);
+  const t = TYPES[m.type];
+  const prev = DB.readings.filter(r=>r.meterId===meterId).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Manuelle Ablesung: ${m.name}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      ${prev?`<div class="alert alert-blue">Letzte Ablesung: <strong>${fmt(prev.value)} ${t.unit}</strong> am ${fmtDate(prev.date)}</div>`:''}
+      <div class="field"><label>Zählerstand (${t.unit}) *</label>
+        <input class="input" id="mr-value" type="number" step="0.001" placeholder="z.B. 12345.678" oninput="checkPlausibility(${prev?prev.value:'null'})">
+        <div id="plausibility-hint" style="font-size:11px;margin-top:5px"></div>
+      </div>
+      <div class="input-row">
+        <div class="field"><label>Datum *</label><input class="input" id="mr-date" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div class="field"><label>Uhrzeit</label><input class="input" id="mr-time" type="time" value="${new Date().toTimeString().slice(0,5)}"></div>
+      </div>
+      <div class="field"><label>Notiz (optional)</label><input class="input" id="mr-notes" placeholder="z.B. Urlaub, Leerstand, Zähler getauscht…"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+        <button class="btn btn-primary" onclick="saveManualReading('${meterId}',${prev?prev.value:'null'})">Speichern</button>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+function checkPlausibility(prevVal) {
+  const val = parseFloat(document.getElementById('mr-value').value);
+  const hint = document.getElementById('plausibility-hint');
+  if (isNaN(val) || prevVal===null) { hint.innerHTML=''; return; }
+  const diff = val - prevVal;
+  if (diff < 0) hint.innerHTML = `<span style="color:var(--red)">⚠ Wert kleiner als letzte Ablesung (${fmt(prevVal)})</span>`;
+  else if (diff > 100000) hint.innerHTML = `<span style="color:var(--amber)">⚠ Sehr hohe Abweichung: +${fmt(diff)}</span>`;
+  else hint.innerHTML = `<span style="color:var(--green)">✓ Verbrauch: +${fmt(diff)}</span>`;
+}
+
+function saveManualReading(meterId, prevVal) {
+  const val = parseFloat(document.getElementById('mr-value').value);
+  if (isNaN(val)) { showToast('Zählerstand erforderlich','error'); return; }
+  const issues = [];
+  if (prevVal !== null) {
+    if (val < prevVal) issues.push('Zählerstand geringer als vorherige Ablesung');
+    if (val - prevVal > 100000) issues.push('Sehr hohe Abweichung zum Vorwert');
+  }
+  DB.readings.push({
+    id:uid(), meterId, value:val,
+    date:document.getElementById('mr-date').value,
+    time:document.getElementById('mr-time').value,
+    notes:document.getElementById('mr-notes').value,
+    source:'manual', issues,
+    createdAt:new Date().toISOString(),
+  });
+  saveData(DB); closeModal(); renderPage(currentPage); showToast('Ablesung gespeichert ✓');
+}
+
+// ── CONTRACT ──
+function buildContractModal(existing, meterId) {
+  const e = existing || {};
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">${existing?'Vertrag bearbeiten':'Vertrag hinzufügen'}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Zähler *</label>
+        <select class="input" id="c-meter">
+          <option value="">– bitte wählen –</option>
+          ${DB.meters.map(m=>`<option value="${m.id}"${(e.meterId||meterId)===m.id?' selected':''}>${TYPES[m.type].icon} ${m.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Anbieter</label><input class="input" id="c-provider" placeholder="z.B. Stadtwerke München" value="${e.provider||''}"></div>
+      <div class="input-row">
+        <div class="field"><label>Grundpreis (€/Jahr)</label><input class="input" id="c-base" type="number" step="0.01" placeholder="z.B. 120.00" value="${e.basePrice||''}" oninput="updateCostPreview()"></div>
+        <div class="field"><label>Arbeitspreis (ct/kWh)</label><input class="input" id="c-work" type="number" step="0.001" placeholder="z.B. 28.50" value="${e.workPrice||''}" oninput="updateCostPreview()"></div>
+      </div>
+      <div class="field"><label>Jahresverbrauch Schätzung</label><input class="input" id="c-est" type="number" placeholder="z.B. 3500" value="${e.estimatedYearly||''}" oninput="updateCostPreview()"></div>
+      <div id="cost-preview"></div>
+      <div class="input-row">
+        <div class="field"><label>Vertragsbeginn</label><input class="input" id="c-start" type="date" value="${e.startDate||''}"></div>
+        <div class="field"><label>Vertragsende</label><input class="input" id="c-end" type="date" value="${e.endDate||''}"></div>
+      </div>
+      <div class="field"><label>Notizen</label><textarea class="input" id="c-notes" rows="2" placeholder="Kündigungsfrist, Sonderbedingungen…">${e.notes||''}</textarea></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+        <button class="btn btn-primary" onclick="saveContract('${e.id||''}')">Speichern</button>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+function updateCostPreview() {
+  const base = parseFloat(document.getElementById('c-base')?.value)||0;
+  const work = parseFloat(document.getElementById('c-work')?.value)||0;
+  const est = parseFloat(document.getElementById('c-est')?.value)||0;
+  if (!base && !work && !est) { document.getElementById('cost-preview').innerHTML=''; return; }
+  const yearly = base + work*est/100;
+  document.getElementById('cost-preview').innerHTML = `<div class="alert alert-green">Geschätzte Jahreskosten: <strong>${fmtCur(yearly)}</strong> · ${fmtCur(yearly/12)}/Monat</div>`;
+}
+
+function saveContract(existingId) {
+  const meterId = document.getElementById('c-meter').value;
+  if (!meterId) { showToast('Bitte einen Zähler wählen','error'); return; }
+  const c = {
+    id: existingId || uid(),
+    meterId,
+    provider:document.getElementById('c-provider').value,
+    basePrice:document.getElementById('c-base').value,
+    workPrice:document.getElementById('c-work').value,
+    estimatedYearly:document.getElementById('c-est').value,
+    startDate:document.getElementById('c-start').value,
+    endDate:document.getElementById('c-end').value,
+    notes:document.getElementById('c-notes').value,
+  };
+  DB.contracts = DB.contracts.filter(x=>x.id!==c.id);
+  DB.contracts.push(c);
+  saveData(DB); closeModal(); renderPage(currentPage); showToast('Vertrag gespeichert ✓');
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function fileToBase64(file) {
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function showToast(msg, type='success') {
+  const t = document.createElement('div');
+  t.className = `toast-item toast-${type}`;
+  t.textContent = msg;
+  document.getElementById('toast').appendChild(t);
+  setTimeout(()=>t.remove(), 3500);
+}
+
+function showPage(p) {
+  document.querySelectorAll('.nav-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.page===p); });
+  document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  currentPage = p;
+  renderPage(p);
+}
+
+function exportCSV() {
+  const rows = [['Datum','Uhrzeit','Zähler','Typ','Zähler-ID','Zählerstand','Einheit','Quelle','Notizen','Probleme']];
+  DB.readings.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(r=>{
+    const m = DB.meters.find(x=>x.id===r.meterId);
+    const t = m ? TYPES[m.type] : null;
+    rows.push([r.date,r.time||'',m?.name||'',t?.label||'',r.detectedMeterId||m?.meterId||'',r.value,t?.unit||'',r.source,r.notes||'',(r.issues||[]).join('; ')]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  download('\uFEFF'+csv, `energietracker-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+  showToast('CSV exportiert ✓');
+}
+
+function exportJSON() {
+  download(JSON.stringify(DB, null, 2), `energietracker-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+  showToast('JSON exportiert ✓');
+}
+
+function importJSON() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange = e => {
+    const f = e.target.files[0];
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (!d.meters||!d.readings) throw new Error();
+        DB = d; saveData(DB); renderPage(currentPage);
+        showToast('Daten importiert ✓');
+      } catch { showToast('Ungültige JSON-Datei','error'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+function resetAll() {
+  if (!confirm('ALLE Daten löschen? Dies kann nicht rückgängig gemacht werden!')) return;
+  if (!confirm('Wirklich alle Zähler, Ablesungen und Verträge löschen?')) return;
+  DB = {meters:[],readings:[],contracts:[]};
+  saveData(DB); renderPage(currentPage); showToast('Alle Daten gelöscht','error');
+}
+
+function download(content, filename, mime) {
+  const blob = new Blob([content],{type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════
+// TESTDATEN
+// ═══════════════════════════════════════════════════════
+function seedTestData() {
+  const m1 = 'meter-strom-01';
+  const m2 = 'meter-gas-01';
+  const m3 = 'meter-wasser-01';
+  const m4 = 'meter-strom-02';
+
+  const meters = [
+    {id:m1,name:'Hauptzähler Strom',type:'strom',meterId:'1ESY1234567890',location:'Keller',createdAt:'2024-01-01T00:00:00Z'},
+    {id:m2,name:'Gaszähler Heizung',type:'gas',meterId:'G-00987654',location:'Heizungsraum',createdAt:'2024-01-01T00:00:00Z'},
+    {id:m3,name:'Wasserzähler Haupt',type:'wasser',meterId:'W-55443322',location:'Keller',createdAt:'2024-01-01T00:00:00Z'},
+    {id:m4,name:'Strom Büro/Garage',type:'strom',meterId:'1ESY9876543210',location:'Garage',createdAt:'2024-01-01T00:00:00Z'},
+  ];
+
+  // Strom Hauptzähler – monatliche Ablesungen Jan 2024 – Jun 2025
+  // Grundwert 12000, ~280 kWh/Monat, im Winter mehr, im Sommer weniger
+  const stromBase = 12000;
+  const stromMonthly = [310,295,270,240,200,185,190,205,240,285,310,320, // 2024
+                         305,290,265,238,195,182]; // Jan–Jun 2025
+  // Gas – ~80 m³/Monat, stark saisonal
+  const gasBase = 3500;
+  const gasMonthly = [120,105,90,45,20,8,5,6,18,55,95,115, // 2024
+                       118,102,88,40,18,7]; // Jan–Jun 2025
+  // Wasser – ~12 m³/Monat, relativ konstant
+  const wasserBase = 800;
+  const wasserMonthly = [11,10,12,13,14,15,16,15,13,12,11,10, // 2024
+                          11,10,12,14,15,16]; // Jan–Jun 2025
+  // Strom Büro – ~120 kWh/Monat
+  const bueroBase = 500;
+  const bueroMonthly = [125,118,110,100,85,80,85,95,105,120,128,132, // 2024
+                         122,115,108,98,82,78]; // Jan–Jun 2025
+
+  const readings = [];
+  let rid = 1;
+
+  function addReadings(meterId, base, monthly, startYear=2024) {
+    let val = base;
+    monthly.forEach((delta, i) => {
+      const year = startYear + Math.floor(i / 12);
+      const month = (i % 12) + 1;
+      // Leichte Zufallsvariation ±5%
+      const jitter = 1 + (Math.random() * 0.1 - 0.05);
+      val += Math.round(delta * jitter * 10) / 10;
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(Math.floor(Math.random()*5)+10).padStart(2,'0')}`;
+      readings.push({
+        id:'r'+(rid++),
+        meterId,
+        value: Math.round(val * 100) / 100,
+        date: dateStr,
+        time: `${String(Math.floor(Math.random()*3)+8).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,
+        detectedMeterId: '',
+        confidence: null,
+        issues: [],
+        notes: '',
+        source: i % 3 === 0 ? 'photo' : 'manual',
+        createdAt: dateStr + 'T10:00:00Z',
+      });
+    });
+  }
+
+  addReadings(m1, stromBase, stromMonthly);
+  addReadings(m2, gasBase, gasMonthly);
+  addReadings(m3, wasserBase, wasserMonthly);
+  addReadings(m4, bueroBase, bueroMonthly);
+
+  const contracts = [
+    {
+      id:'c1', meterId:m1, provider:'Stadtwerke München',
+      basePrice:'156.00', workPrice:'28.50', estimatedYearly:'3200',
+      startDate:'2024-01-01', endDate:'2025-12-31',
+      notes:'Kündigungsfrist 6 Wochen zum Vertragsende'
+    },
+    {
+      id:'c2', meterId:m2, provider:'Bayerngas GmbH',
+      basePrice:'120.00', workPrice:'9.80', estimatedYearly:'700',
+      startDate:'2023-04-01', endDate:'2025-03-31',
+      notes:'Automatische Verlängerung um 1 Jahr'
+    },
+    {
+      id:'c3', meterId:m3, provider:'Stadtwerke München',
+      basePrice:'72.00', workPrice:'2.10', estimatedYearly:'145',
+      startDate:'2022-01-01', endDate:'',
+      notes:'Unbefristeter Vertrag'
+    },
+    {
+      id:'c4', meterId:m4, provider:'Eon Strom',
+      basePrice:'84.00', workPrice:'29.90', estimatedYearly:'1300',
+      startDate:'2024-06-01', endDate:'2026-05-31',
+      notes:''
+    },
+  ];
+
+  DB = {meters, readings, contracts};
+  saveData(DB);
+  showToast('✓ Testdaten geladen – ' + readings.length + ' Ablesungen eingefügt');
+  renderPage(currentPage);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+// Testdaten laden falls noch keine Daten vorhanden
+if (!DB.meters.length) seedTestData();
+renderDashboard();
+</script>
+</body>
+</html>
