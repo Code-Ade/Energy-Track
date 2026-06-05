@@ -34,29 +34,49 @@ input,select,textarea{font-family:var(--font-mono);outline:none;transition:borde
 img{max-width:100%;display:block}
 
 /* ── LAYOUT ── */
-#app{display:flex;height:100vh}
+#app{display:flex;height:100vh;position:relative}
 nav#sidebar{
-  width:220px;flex-shrink:0;background:linear-gradient(180deg,#080d1a 0%,#0a0f1e 100%);
-  border-right:1px solid var(--border);display:flex;flex-direction:column;
-  position:sticky;top:0;height:100vh;
+  width:220px;flex-shrink:0;
+  background:linear-gradient(180deg,#080d1a 0%,#0a0f1e 100%);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  height:100vh;position:sticky;top:0;
+  transition:transform 0.28s cubic-bezier(.4,0,.2,1), width 0.28s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;z-index:10;
 }
-main#content{flex:1;overflow-y:auto;padding:32px;max-height:100vh}
+nav#sidebar.closed{
+  transform:translateX(-220px);
+  width:0;
+  border-right:none;
+}
+main#content{flex:1;overflow-y:auto;padding:32px 32px 32px 68px;max-height:100vh;transition:padding-left 0.28s}
 
-/* ── SIDEBAR ── */
-.sidebar-brand{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+/* ── MENU TOGGLE BUTTON ── */
+#menu-toggle{
+  position:fixed;top:16px;left:16px;z-index:20;
+  width:36px;height:36px;border-radius:9px;
+  background:var(--bg3);border:1px solid var(--border2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  cursor:pointer;transition:var(--transition);box-shadow:0 2px 10px rgba(0,0,0,0.4);
+}
+#menu-toggle:hover{background:var(--bg4);border-color:var(--amber);box-shadow:0 2px 14px rgba(245,158,11,0.2)}
+#menu-toggle .bar{display:block;width:16px;height:2px;background:var(--text2);border-radius:2px;transition:all 0.25s ease;transform-origin:center}
+
+/* ── SIDEBAR INTERNALS ── */
+.sidebar-brand{padding:22px 20px 18px;border-bottom:1px solid var(--border);white-space:nowrap}
 .sidebar-brand h1{font-family:var(--font-display);font-size:17px;font-weight:800;color:var(--amber);letter-spacing:-0.3px}
 .sidebar-brand small{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
 .nav-items{padding:10px 0;flex:1}
 .nav-btn{
   display:flex;align-items:center;gap:10px;width:100%;padding:11px 20px;
   color:var(--text3);font-size:12px;text-align:left;border-left:3px solid transparent;
-  transition:var(--transition);letter-spacing:0.3px;
+  transition:var(--transition);letter-spacing:0.3px;white-space:nowrap;
 }
 .nav-btn:hover{background:var(--bg3);color:var(--text2)}
 .nav-btn.active{background:var(--bg3);color:var(--amber);border-left-color:var(--amber)}
 .nav-btn svg{flex-shrink:0;opacity:0.7}
 .nav-btn.active svg{opacity:1}
-.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border)}
 
 /* ── TYPOGRAPHY ── */
 .page-title{font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-bottom:6px}
@@ -193,8 +213,8 @@ select.input option{background:var(--bg2)}
 
 /* ── MOBILE ── */
 @media(max-width:680px){
-  #sidebar{display:none}
-  main#content{padding:16px}
+  nav#sidebar{position:fixed;z-index:15}
+  main#content{padding:16px;padding-top:64px}
   .card-grid-2,.card-grid-4{grid-template-columns:1fr}
   .input-row{grid-template-columns:1fr}
 }
@@ -214,10 +234,15 @@ select.input option{background:var(--bg2)}
 </head>
 <body>
 
+<!-- MENU TOGGLE (fixed, always visible) -->
+<button id="menu-toggle" onclick="toggleSidebar()" title="Menü ein-/ausblenden">
+  <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+</button>
+
 <div id="app">
   <!-- SIDEBAR -->
   <nav id="sidebar">
-    <div class="sidebar-brand">
+    <div class="sidebar-brand" style="padding-top:68px">
       <h1>⚡ EnergyTrack</h1>
       <small>Verbrauchsmonitor</small>
     </div>
@@ -357,10 +382,17 @@ select.input option{background:var(--bg2)}
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               CSV exportieren
             </button>
+            <button class="btn btn-primary" onclick="importCSV()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              CSV importieren
+            </button>
             <button class="btn btn-ghost" onclick="exportJSON()">JSON exportieren</button>
-            <button class="btn btn-danger" onclick="importJSON()">JSON importieren</button>
+            <button class="btn btn-ghost" onclick="importJSON()">JSON importieren</button>
           </div>
-          <p style="font-size:11px;color:var(--text3);margin-top:12px">Exportiere regelmäßig deine Daten als Backup.</p>
+          <p style="font-size:11px;color:var(--text3);margin-top:12px">
+            CSV-Import erkennt automatisch Zähler anhand von Name und ID.<br>
+            Exportiere regelmäßig deine Daten als Backup.
+          </p>
         </div>
 
         <div class="card">
@@ -1118,10 +1150,221 @@ function exportCSV() {
   showToast('CSV exportiert ✓');
 }
 
-function exportJSON() {
-  download(JSON.stringify(DB, null, 2), `energietracker-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
-  showToast('JSON exportiert ✓');
+function importCSV() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.csv,text/csv';
+  inp.onchange = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        // BOM entfernen falls vorhanden
+        const raw = ev.target.result.replace(/^\uFEFF/, '');
+        const result = parseAndImportCSV(raw);
+        if (result.error) { showToast(result.error, 'error'); return; }
+        // Vorschau-Modal anzeigen
+        openCSVPreviewModal(result);
+      } catch(e) {
+        showToast('CSV konnte nicht gelesen werden: ' + e.message, 'error');
+      }
+    };
+    reader.readAsText(f, 'UTF-8');
+  };
+  inp.click();
 }
+
+function parseCSVLine(line) {
+  // Korrekte CSV-Zeilen-Parsung mit Anführungszeichen-Unterstützung
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; } // escaped quote
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function parseAndImportCSV(raw) {
+  const lines = raw.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return { error: 'CSV ist leer oder hat keine Datenzeilen.' };
+
+  const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+
+  // Pflicht-Spalten prüfen — passend zum Export-Format
+  const required = ['datum', 'zähler', 'zählerstand'];
+  for (const col of required) {
+    if (!header.includes(col)) return { error: `Pflicht-Spalte "${col}" fehlt in der CSV. Bitte eine exportierte CSV verwenden.` };
+  }
+
+  const col = h => header.indexOf(h);
+
+  const rows = [];
+  const errors = [];
+  const newMeters = {}; // name -> tempId für unbekannte Zähler
+
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const cells = parseCSVLine(lines[i]);
+    const get = (name, fallback='') => (cells[col(name)] || fallback).trim();
+
+    const datum     = get('datum');
+    const zähler    = get('zähler');
+    const standStr  = get('zählerstand');
+    const typ       = get('typ','').toLowerCase();
+    const zaehlerId = get('zähler-id');
+    const einheit   = get('einheit','');
+    const quelle    = get('quelle','manual');
+    const notizen   = get('notizen');
+    const probleme  = get('probleme');
+    const uhrzeit   = get('uhrzeit','');
+
+    // Datum validieren
+    if (!datum || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+      errors.push(`Zeile ${i+1}: Ungültiges Datum "${datum}" (erwartet YYYY-MM-DD) — übersprungen`);
+      continue;
+    }
+
+    // Zählerstand validieren
+    const stand = parseFloat(standStr.replace(',','.'));
+    if (isNaN(stand)) {
+      errors.push(`Zeile ${i+1}: Ungültiger Zählerstand "${standStr}" — übersprungen`);
+      continue;
+    }
+
+    // Zähler-Matching: erst nach Name, dann nach ID
+    let meter = DB.meters.find(m => m.name === zähler) ||
+                DB.meters.find(m => m.meterId && m.meterId === zaehlerId);
+
+    let meterId;
+    if (meter) {
+      meterId = meter.id;
+    } else {
+      // Unbekannter Zähler → wird neu angelegt
+      const key = zähler || zaehlerId || `Unbekannt_${i}`;
+      if (!newMeters[key]) {
+        // Typ aus Einheit oder Typ-Spalte ableiten
+        let detectedType = 'strom';
+        if (typ.includes('gas') || einheit === 'm³') detectedType = 'gas';
+        if (typ.includes('wasser')) detectedType = 'wasser';
+        if (einheit === 'kwh') detectedType = 'strom';
+
+        newMeters[key] = { id: uid(), name: zähler || key, type: detectedType, meterId: zaehlerId || '', location: '', createdAt: new Date().toISOString(), _new: true };
+      }
+      meterId = newMeters[key].id;
+    }
+
+    // Duplikat-Prüfung: gleicher Zähler + Datum + Stand bereits vorhanden?
+    const duplicate = DB.readings.some(r => r.meterId === meterId && r.date === datum && r.value === stand);
+    if (duplicate) {
+      errors.push(`Zeile ${i+1}: Ablesung ${stand} am ${datum} für "${zähler}" bereits vorhanden — übersprungen`);
+      continue;
+    }
+
+    rows.push({
+      id: uid(), meterId,
+      value: stand,
+      date: datum,
+      time: uhrzeit,
+      detectedMeterId: zaehlerId || '',
+      issues: probleme ? probleme.split(';').map(s=>s.trim()).filter(Boolean) : [],
+      notes: notizen,
+      source: quelle === 'photo' ? 'photo' : 'manual',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return {
+    rows,
+    errors,
+    newMeters: Object.values(newMeters),
+  };
+}
+
+function openCSVPreviewModal(result) {
+  const { rows, errors, newMeters } = result;
+  const container = document.getElementById('modal-container');
+
+  const newMetersList = newMeters.length
+    ? `<div class="alert alert-amber" style="margin-bottom:12px">
+        <strong>⚠ ${newMeters.length} neue Zähler werden angelegt:</strong><br>
+        ${newMeters.map(m => `${TYPES[m.type].icon} <strong>${m.name}</strong> (${TYPES[m.type].label})`).join(', ')}
+       </div>` : '';
+
+  const errorsList = errors.length
+    ? `<div class="alert alert-red" style="margin-bottom:12px;max-height:120px;overflow-y:auto">
+        <strong>⚠ ${errors.length} Zeilen übersprungen:</strong><br>
+        ${errors.map(e=>`<div style="margin-top:4px;font-size:11px">${e}</div>`).join('')}
+       </div>` : '';
+
+  const preview = rows.slice(0, 5).map(r => {
+    const m = DB.meters.find(x=>x.id===r.meterId) || newMeters.find(x=>x.id===r.meterId);
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${m?.name||'–'}</td>
+      <td style="font-weight:600">${r.value}</td>
+      <td>${r.source==='photo'?'📷':'✏️'}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">📥 CSV Import Vorschau</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        ${rows.length === 0
+          ? `<div class="alert alert-red">Keine importierbaren Zeilen gefunden.</div>${errorsList}`
+          : `
+          <div class="alert alert-green" style="margin-bottom:12px">
+            ✓ <strong>${rows.length} Ablesungen</strong> bereit zum Import
+          </div>
+          ${newMetersList}
+          ${errorsList}
+          <div class="card" style="padding:0;overflow:hidden;margin-bottom:4px">
+            <table class="data-table">
+              <thead><tr><th>Datum</th><th>Zähler</th><th>Stand</th><th>Quelle</th></tr></thead>
+              <tbody>${preview}</tbody>
+            </table>
+            ${rows.length > 5 ? `<div style="padding:10px 14px;font-size:11px;color:var(--text3)">… und ${rows.length - 5} weitere</div>` : ''}
+          </div>`
+        }
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+          <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+          ${rows.length > 0 ? `<button class="btn btn-primary" onclick="confirmCSVImport(${JSON.stringify(JSON.stringify({rows, newMeters}))})">
+            ${rows.length} Ablesungen importieren
+          </button>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function confirmCSVImport(jsonStr) {
+  const { rows, newMeters } = JSON.parse(jsonStr);
+  // Neue Zähler hinzufügen
+  newMeters.forEach(m => {
+    if (!DB.meters.find(x=>x.id===m.id)) DB.meters.push(m);
+  });
+  // Ablesungen hinzufügen
+  DB.readings.push(...rows);
+  saveData(DB);
+  closeModal();
+  renderPage(currentPage);
+  showToast(`✓ ${rows.length} Ablesungen importiert${newMeters.length ? ` · ${newMeters.length} neue Zähler angelegt` : ''}`);
+}
+
+
 
 function importJSON() {
   const inp = document.createElement('input');
@@ -1157,7 +1400,48 @@ function download(content, filename, mime) {
 }
 
 // ═══════════════════════════════════════════════════════
-// TESTDATEN
+// SIDEBAR TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('menu-toggle');
+  const bars = btn.querySelectorAll('.bar');
+  const isOpen = !sidebar.classList.contains('closed');
+
+  if (isOpen) {
+    // Close it
+    sidebar.classList.add('closed');
+    bars[0].style.transform = '';
+    bars[1].style.opacity = '1';
+    bars[1].style.transform = '';
+    bars[2].style.transform = '';
+    localStorage.setItem('sidebar_open','0');
+  } else {
+    // Open it
+    sidebar.classList.remove('closed');
+    bars[0].style.transform = 'translateY(7px) rotate(45deg)';
+    bars[1].style.opacity = '0';
+    bars[2].style.transform = 'translateY(-7px) rotate(-45deg)';
+    localStorage.setItem('sidebar_open','1');
+  }
+}
+
+// Sidebar-Zustand beim Laden wiederherstellen
+(function() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('menu-toggle');
+  const bars = btn.querySelectorAll('.bar');
+  const isOpen = localStorage.getItem('sidebar_open') !== '0'; // default: open
+  if (!isOpen) {
+    sidebar.classList.add('closed');
+  } else {
+    bars[0].style.transform = 'translateY(7px) rotate(45deg)';
+    bars[1].style.opacity = '0';
+    bars[2].style.transform = 'translateY(-7px) rotate(-45deg)';
+  }
+})();
+
+
 // ═══════════════════════════════════════════════════════
 function seedTestData() {
   const m1 = 'meter-strom-01';
